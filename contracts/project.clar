@@ -20,6 +20,7 @@
 (define-constant DEADLINE_PASSED (err u101))
 (define-constant GOAL_NOT_MET (err u102))
 (define-constant INVALID_AMOUNT (err u103))
+(define-constant PROJECT_NOT_FOUND (err u404))
 
 ;; Create new project
 (define-public (create-project 
@@ -45,6 +46,7 @@
       }
     )
     (var-set project-count project-id)
+    (print { type: "project-created", project-id: project-id, creator: tx-sender })
     (ok project-id)
   )
 )
@@ -53,14 +55,14 @@
 (define-public (donate (project-id uint) (amount uint))
   (let
     (
-      (project (unwrap! (map-get? projects { project-id: project-id }) (err u404)))
+      (project (unwrap! (map-get? projects { project-id: project-id }) PROJECT_NOT_FOUND))
       (current-time block-height)
     )
     (asserts! (get is-active project) INACTIVE_PROJECT)
     (asserts! (< current-time (get deadline project)) DEADLINE_PASSED)
     (asserts! (> amount u0) INVALID_AMOUNT)
     
-    ;; Transfer STX from sender
+    ;; Transfer STX from sender to contract
     (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
     
     ;; Update project amount
@@ -72,6 +74,7 @@
     ;; Trigger reward check
     (try! (contract-call? .rewards update-donor-status tx-sender amount))
     
+    (print { type: "donation-received", project-id: project-id, donor: tx-sender, amount: amount })
     (ok true)
   )
 )
@@ -80,14 +83,21 @@
 (define-public (release-funds (project-id uint))
   (let
     (
-      (project (unwrap! (map-get? projects { project-id: project-id }) (err u404)))
+      (project (unwrap! (map-get? projects { project-id: project-id }) PROJECT_NOT_FOUND))
     )
+    (asserts! (get is-active project) INACTIVE_PROJECT)
     (asserts! (>= (get current-amount project) (get goal-amount project)) GOAL_NOT_MET)
     (try! (as-contract (stx-transfer? (get current-amount project) tx-sender (get creator project))))
     (map-set projects
       { project-id: project-id }
       (merge project { is-active: false })
     )
+    (print { type: "funds-released", project-id: project-id, amount: (get current-amount project) })
     (ok true)
   )
+)
+
+;; Getter for project details
+(define-read-only (get-project (project-id uint))
+  (map-get? projects { project-id: project-id })
 )

@@ -45,6 +45,7 @@
             badge-id: (some new-badge-id)
           }
         )
+        (print { type: "badge-issued", donor: donor, level: new-level, badge-id: new-badge-id })
       )
     )
     (ok true)
@@ -63,4 +64,9 @@
       )
     )
   )
+)
+
+;; Getter for donor status
+(define-read-only (get-donor-status (donor principal))
+  (map-get? donor-stats { donor: donor })
 )
