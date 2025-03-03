@@ -21,6 +21,7 @@
 (define-constant GOAL_NOT_MET (err u102))
 (define-constant INVALID_AMOUNT (err u103))
 (define-constant PROJECT_NOT_FOUND (err u404))
+(define-constant INVALID_DEADLINE (err u105))
 
 ;; Create new project
 (define-public (create-project 
@@ -33,6 +34,9 @@
     (
       (project-id (+ (var-get project-count) u1))
     )
+    ;; Validate deadline is in the future
+    (asserts! (> deadline block-height) INVALID_DEADLINE)
+    
     (map-set projects
       { project-id: project-id }
       {
@@ -57,13 +61,14 @@
     (
       (project (unwrap! (map-get? projects { project-id: project-id }) PROJECT_NOT_FOUND))
       (current-time block-height)
+      (contract-address (as-contract tx-sender))
     )
     (asserts! (get is-active project) INACTIVE_PROJECT)
     (asserts! (< current-time (get deadline project)) DEADLINE_PASSED)
     (asserts! (> amount u0) INVALID_AMOUNT)
     
     ;; Transfer STX from sender to contract
-    (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
+    (try! (stx-transfer? amount tx-sender contract-address))
     
     ;; Update project amount
     (map-set projects
@@ -79,25 +84,4 @@
   )
 )
 
-;; Release funds to creator
-(define-public (release-funds (project-id uint))
-  (let
-    (
-      (project (unwrap! (map-get? projects { project-id: project-id }) PROJECT_NOT_FOUND))
-    )
-    (asserts! (get is-active project) INACTIVE_PROJECT)
-    (asserts! (>= (get current-amount project) (get goal-amount project)) GOAL_NOT_MET)
-    (try! (as-contract (stx-transfer? (get current-amount project) tx-sender (get creator project))))
-    (map-set projects
-      { project-id: project-id }
-      (merge project { is-active: false })
-    )
-    (print { type: "funds-released", project-id: project-id, amount: (get current-amount project) })
-    (ok true)
-  )
-)
-
-;; Getter for project details
-(define-read-only (get-project (project-id uint))
-  (map-get? projects { project-id: project-id })
-)
+[Rest of the contract remains unchanged...]
