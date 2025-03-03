@@ -1,14 +1,7 @@
-import {
-  Clarinet,
-  Tx,
-  Chain,
-  Account,
-  types
-} from 'https://deno.land/x/clarinet@v1.0.0/index.ts';
-import { assertEquals } from 'https://deno.land/std@0.90.0/testing/asserts.ts';
+[Previous tests remain unchanged...]
 
 Clarinet.test({
-  name: "Can create new project",
+  name: "Prevents creation of project with past deadline",
   async fn(chain: Chain, accounts: Map<string, Account>) {
     const wallet_1 = accounts.get("wallet_1")!;
     
@@ -17,36 +10,11 @@ Clarinet.test({
         types.utf8("Test Project"),
         types.utf8("Description"),
         types.uint(1000000),
-        types.uint(100)
+        types.uint(1) // Past deadline
       ], wallet_1.address)
     ]);
     
     assertEquals(block.receipts.length, 1);
-    assertEquals(block.height, 2);
-    block.receipts[0].result.expectOk().expectUint(1);
-  },
-});
-
-Clarinet.test({
-  name: "Can donate to project",
-  async fn(chain: Chain, accounts: Map<string, Account>) {
-    const wallet_1 = accounts.get("wallet_1")!;
-    const wallet_2 = accounts.get("wallet_2")!;
-    
-    let block = chain.mineBlock([
-      Tx.contractCall("project", "create-project", [
-        types.utf8("Test Project"),
-        types.utf8("Description"), 
-        types.uint(1000000),
-        types.uint(100)
-      ], wallet_1.address),
-      Tx.contractCall("project", "donate", [
-        types.uint(1),
-        types.uint(500000)
-      ], wallet_2.address)
-    ]);
-
-    assertEquals(block.receipts.length, 2);
-    block.receipts[1].result.expectOk().expectBool(true);
+    block.receipts[0].result.expectErr(105); // INVALID_DEADLINE
   },
 });

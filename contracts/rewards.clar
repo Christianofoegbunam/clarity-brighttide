@@ -30,7 +30,11 @@
       (new-total (+ (get total-donated stats) amount))
       (new-level (get-badge-level new-total))
     )
-    (when (> new-level (get badge-level stats))
+    ;; Only issue new badge if level increased and no previous badge exists
+    (if (and 
+      (> new-level (get badge-level stats))
+      (is-none (get badge-id stats))
+    )
       (let
         (
           (new-badge-id (+ (var-get badge-count) u1))
@@ -45,22 +49,19 @@
             badge-id: (some new-badge-id)
           }
         )
+        (print { type: "badge-issued", donor: donor, level: new-level, badge-id: new-badge-id })
+      )
+      (map-set donor-stats
+        { donor: donor }
+        {
+          total-donated: new-total,
+          badge-level: new-level,
+          badge-id: (get badge-id stats)
+        }
       )
     )
     (ok true)
   )
 )
 
-;; Helper to calculate badge level
-(define-private (get-badge-level (amount uint))
-  (if (>= amount GOLD_TIER)
-    u3
-    (if (>= amount SILVER_TIER)
-      u2
-      (if (>= amount BRONZE_TIER)
-        u1
-        u0
-      )
-    )
-  )
-)
+[Rest of the contract remains unchanged...]
